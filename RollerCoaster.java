@@ -320,9 +320,19 @@ public class RollerCoaster extends Application {
             double curvature = 0;
             double cAcceleration = 0;
             double lAcceleration = 0;
+            double bAcceleration = 0;
             double prevSpeed = 0;
             double count = 0;
             double dragWork = 0;
+            double dragFriction = 0;
+            double angleX = 0;
+            double angleY = 0;
+            double frictionCoefficient = 0.001;
+            double angularVelocity = 0;
+            double angularAcceleration = 0;
+            double prevAngularVelocity = 0;
+            double angularPotential = 0;
+            final double passengerDistance = 0.6;
 
             public void handle(long now) {
                 if (distance >= maxDistance[curve] && curve != 5) {
@@ -341,20 +351,29 @@ public class RollerCoaster extends Application {
                         cameraTest.setTranslateY(Curve.position(time + c.getArr()[curve][0], curve)[1]);
                         cameraTest.setTranslateZ(Curve.position(time + c.getArr()[curve][0], curve)[2]);
 
+                        angleY = Curve.cameraAngles(time + c.getArr()[curve][0], curve)[0];
+                        angleX = Curve.cameraAngles(time + c.getArr()[curve][0], curve)[1];
+
                         cameraTest.getTransforms().addAll(
                                 new Rotate(-prevRotateX, Rotate.X_AXIS),
                                 new Rotate(-prevRotateY, Rotate.Y_AXIS),
-                                new Rotate(Curve.cameraAngles(time + c.getArr()[curve][0], curve)[0], Rotate.Y_AXIS),
-                                new Rotate(Curve.cameraAngles(time + c.getArr()[curve][0], curve)[1], Rotate.X_AXIS));
+                                new Rotate(angleY, Rotate.Y_AXIS),
+                                new Rotate(angleX, Rotate.X_AXIS));
                     }
+
+                    double height = Curve.position(time + c.getArr()[curve][0], curve)[1];
+
+                    prevAngularVelocity = angularVelocity;
+                    angularVelocity = (angleY - prevRotateY) / 0.0174;
+                    angularAcceleration = (angularVelocity - prevAngularVelocity) / 0.0174;
 
                     prevRotateY = Curve.cameraAngles(time + c.getArr()[curve][0], curve)[0];
                     prevRotateX = Curve.cameraAngles(time + c.getArr()[curve][0], curve)[1];
 
-                    double height = Curve.position(time + c.getArr()[curve][0], curve)[1];
-
                     dragWork += (0.007 * velocity) * dragCoefficient * velocity;
-                    potential = Math.max(0, gravity * (initialHeight - height) - dragWork);
+                    dragFriction += (0.007 * velocity) * frictionCoefficient * gravity * Math.abs(Curve.sin(Math.PI * angleX / 180));
+                    angularPotential = (0.25) * angularVelocity * angularVelocity * passengerDistance * passengerDistance;
+                    potential = Math.max(0, gravity * (initialHeight - height) - dragWork - dragFriction - angularPotential);
                     velocity = Math.sqrt(2 * potential);
                     prevDistance = distance;
                     prevSpeed = speed;
@@ -362,8 +381,10 @@ public class RollerCoaster extends Application {
                     if (curve == 0 && time < 2) {
                         velocity = 10;
                         dragCoefficient = 0;
+                        frictionCoefficient = 0;
                     } else {
                         dragCoefficient = 0.05;
+                        frictionCoefficient = 0.5 * Math.pow(10, -10);
                     }
                     if (curve == 5 && (distance + 0.007 * velocity) >= maxDistance[curve]) {
                         velocity = 0;
@@ -394,6 +415,9 @@ public class RollerCoaster extends Application {
 
                     cAcceleration = speed * speed * curvature;
                     lAcceleration = (speed - prevSpeed) / 0.0174;
+                    bAcceleration = Math.abs(angularAcceleration * passengerDistance * Math.PI / 180);
+
+                    System.out.println(bAcceleration);
                 }
 
                 timeElapsed.setText("Time Elapsed (s): " + ((int) (1000 * elapsed) / (double) 1000));
@@ -414,6 +438,8 @@ public class RollerCoaster extends Application {
                         elapsed = 0;
                         circleIndex = 0;
                         dragWork = 0;
+                        dragFriction = 0;
+                        angularVelocity = 0;
                         for (int i = 0; i < 3000; i++) {
                             graphCircle[i].setTranslateX(3000);
                             graphCircle2[i].setTranslateX(3000);
